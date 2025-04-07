@@ -1,7 +1,7 @@
 import json
 from collections import Counter
 from typing import List
-from utils.card import MTGCard
+from featureExtractor.classes.card import MTGCard
 
 # Calculate ideal number of lands for a deck given the cards
 def calculate_lands(parsed_cards: List[MTGCard], total_cards):
