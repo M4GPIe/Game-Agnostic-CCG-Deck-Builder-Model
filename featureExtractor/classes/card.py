@@ -1,10 +1,10 @@
 # DEFINITION OF CARD OBJECT
 
 from typing import List, Dict
-import re
+import numpy as np
 
 class MTGCard:
-    def __init__(self, name: str, card_type: str, mana_cost: str, convertedManaCost: int, power: int, toughness: int, card_effects: Dict[str, bool], card_keywords: List[str]):
+    def __init__(self, name: str, card_type: str, mana_cost_by_color: Dict[str, int], convertedManaCost: int, power: int, toughness: int, card_effects: Dict[str, bool], card_keywords: Dict[str, bool]):
         self.name = name  
         self.card_type = card_type  
         self.power = power  
@@ -12,28 +12,7 @@ class MTGCard:
         self.keywords = card_keywords
         self.effects = card_effects
         self.convertedManaCost = convertedManaCost 
-        self.mana_cost_by_color = self.parse_mana_cost(mana_cost)
-
-    def parse_mana_cost(self, mana_cost: str) -> Dict[str, int]:
-        """
-            From card's mana cost return a dictionary with cost by color in standar format
-        """
-        
-        # black, blue, red, green, white and colorless
-        color_symbols = {'B': 0, 'U': 0, 'R': 0, 'G': 0, 'W': 0, 'C': 0}  
-
-        # mana is expresed in string form like "{2}{B}{G}" meaning 2 colorless, one black and one green
-        mana_pattern = r'\{(\d+)\}|\{(B|U|R|G|W|C)\}'  
-
-        matches = re.findall(mana_pattern, mana_cost)
-
-        for match in matches:
-            if match[0]:  # if matches the first part is a number represeting colorless
-                color_symbols['C'] += int(match[0]) 
-            elif match[1]:  #if matches a letter
-                color_symbols[match[1]] += 1 
-
-        return color_symbols
+        self.mana_cost_by_color = mana_cost_by_color
 
     def __repr__(self):
         return (f"MTGCard(name={self.name}, "
@@ -44,3 +23,12 @@ class MTGCard:
                 f"toughness={self.toughness}, "
                 f"keywords={self.keywords}, "
                 f"effects={self.effects})")
+    
+    def to_vector(self):
+        # Convierte las características de la carta en un vector que pueda ser utilizado por el modelo
+        # Aquí se extraen las características principales de la carta (se pueden ajustar o agregar más)
+        keyword_vector = [1 if k else 0 for k in self.keywords.values()]  # Ejemplo de palabras clave
+        effect_vector = [1 if k else 0 for k in self.effects.values()]  # Efectos comunes
+        mana_vector = list(self.mana_cost_by_color.values())  # Desglosado por colores
+        power_toughness_vector = [self.power if self.power is not None else 0, self.toughness if self.toughness is not None else 0]
+        return np.array(mana_vector + power_toughness_vector + keyword_vector + effect_vector)

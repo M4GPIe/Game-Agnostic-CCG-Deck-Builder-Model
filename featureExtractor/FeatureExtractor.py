@@ -6,7 +6,7 @@ from .classes.card import MTGCard
 from typing import List, Dict
 import zipfile
 import json
-import time
+import re
 
 class FeatureExtractor:
     def __init__(self, supported_cards_file: str, keywords_list: List[str], effect_references: Dict[str, List[str]], nlp_model: SupportedModels = "sentence-transformers/all-MiniLM-L6-v2", nlp_threshold: float = 0.6, verbose: bool = False, chunkSize: int = 500, excluded_card_types: List[str] = ["Land"]):
@@ -104,8 +104,6 @@ class FeatureExtractor:
 
         print("FOUND")
         
-        
-
         # get keywords
         self.keyword_processor.extract_keywords(card_keywords=card_keywords, card_text = text)
 
@@ -128,11 +126,26 @@ class FeatureExtractor:
             
         print(effects_object)
 
+        # parse mana colors
+        # black, blue, red, green, white and colorless
+        mana_cost_by_color = {'B': 0, 'U': 0, 'R': 0, 'G': 0, 'W': 0, 'C': 0}  
+
+        # mana is expresed in string form like "{2}{B}{G}" meaning 2 colorless, one black and one green
+        mana_pattern = r'\{(\d+)\}|\{(B|U|R|G|W|C)\}'  
+
+        matches = re.findall(mana_pattern, mana_cost)
+
+        for match in matches:
+            if match[0]:  # if matches the first part is a number represeting colorless
+                mana_cost_by_color['C'] += int(match[0]) 
+            elif match[1]:  #if matches a letter
+                mana_cost_by_color[match[1]] += 1 
+
         # create card instance
         mtg_card = MTGCard(
             name=name,
             card_type=card_type,
-            mana_cost=mana_cost,
+            mana_cost_by_color=mana_cost_by_color,
             convertedManaCost=convertedManaCost,
             power=power,
             toughness=toughness,
