@@ -1,0 +1,9 @@
+## Unreleased
+### No issue
+
+**Cleanup: Count$TypeInYour[Zone].[Type] (#7312)**
+
+
+[17a2a23981caaa5](https://github.com/Card-Forge/forge/commit/17a2a23981caaa5) Renato Filipe Vidal Santos *2025-04-01 11:01:45*
+
+
