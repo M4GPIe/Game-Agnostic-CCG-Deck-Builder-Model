@@ -3,12 +3,18 @@ import subprocess
 from featureExtractor.classes.card import MTGCard
 from collections import Counter
 from typing import List
+import random
+import re
+
+# cambiar a stable baselines PPo2 TD3 DDPQ y DQN
+# comparar diferentes algoritmos y resultados
+# conectar GPU (cuda)
 
 class Simulator:
     def __init__(self, forge_installation_path: str, forge_jar_path: str, test_decks_path: str):
         self.forge_installation_path = forge_installation_path
         self.forge_jar_path = forge_jar_path
-        self.test_decks_path = test_deck_path
+        self.test_decks_path = test_decks_path
 
     def generate_deck(self, parsed_cards: List[MTGCard]):
         """
@@ -36,11 +42,14 @@ class Simulator:
             for color, count in card.mana_cost_by_color.items():
                 mana_count[color] += 1
 
+        print(mana_count)
         # Calcular la proporción de tierras por color
         total_mana_cost = sum(mana_count.values())
         lands = {}
         for color, count in mana_count.items():
-            lands[color] = int((count / total_mana_cost) * num_lands)
+            lands[color] = int((count / total_mana_cost) * num_lands)+1
+
+        print(lands)
 
         return lands, num_lands
 
@@ -48,6 +57,7 @@ class Simulator:
         """
         Escribe el archivo .dck con las cartas y tierras calculadas.
         """
+        
         with open(output_file, 'w') as f:
             f.write("[metadata]\n")
             f.write("Name=Generated_deck\n")
@@ -75,9 +85,11 @@ class Simulator:
                     f.write(f"{land_count} Wastes\n")
                     
                     
-    def run_matches(self, generated_deck_name: str, num_matches: int, games_per_match: int):
-        # Lista los archivos .dck en el directorio test_decks_path
-        test_decks = [f for f in os.listdir(self.test_decks_path) if f.endswith('.dck')]
+    def simulate_matches(self, generated_deck_name: str, num_matches: int, games_per_match: int):
+        
+        text_decks = os.path.join(self.forge_installation_path, 'decks', 'constructed')
+
+        test_decks = [f for f in os.listdir(text_decks) if f.endswith('.dck') and f is not generated_deck_name]
         
         # Verifica si hay suficientes decks para jugar
         if len(test_decks) == 0:
@@ -95,6 +107,17 @@ class Simulator:
             # Llama a la función run_match para simular el juego
             result = self.run_match(games_per_match, test_deck_name, generated_deck_name)
             match_results.append(result)
+            print(f"Simulacion contra el mazo {test_deck_name} finalizada")
+            print(f"Partidas ganadas {result['wins_generated_deck']}/{result['total_games']}")
+
+        wins = 0
+        matches = 0
+
+        for result in match_results:
+            wins+=result["wins_generated_deck"]
+            matches += result["total_games"]
+
+        return wins/matches
         
 
     def run_match(self, games_per_match: int, test_deck_name: str, generated_deck_name: str):
@@ -105,8 +128,7 @@ class Simulator:
         ]
 
         print(f"Ejecutando el simulador de partidas con el comando: {' '.join(command)}")
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
-        print(f"Simulación de {games_per_match} partidas completada.")
+        result = subprocess.run(command, check=True, capture_output=True, text=True, cwd=self.forge_jar_path)
 
         output = result.stdout
 
@@ -116,7 +138,7 @@ class Simulator:
         total_turns_test_deck = 0
         total_turns_generated_deck = 0
 
-        match_result_pattern = r"Game (\d+) ended in (\d+) ms\. Ai\(1\)-(\S+) has (won|lost)"
+        match_result_pattern = r"Game (\d+) ended in (\d+) ms\. Ai\(\d\)-(\S.*) has (won|lost)"
         turn_pattern = r"Game outcome: Turn (\d+)"
 
         for line in output.splitlines():
@@ -135,10 +157,11 @@ class Simulator:
             turn_match = re.search(turn_pattern, line)
             if turn_match:
                 turn_number = int(turn_match.group(1))
-                game_turns = turn_number
+                game_turns += turn_number
 
         avg_turns_test_deck = total_turns_test_deck / wins_test_deck if wins_test_deck > 0 else 0
         avg_turns_generated_deck = total_turns_generated_deck / wins_generated_deck if wins_generated_deck > 0 else 0
+
 
         return {
             "total_games": total_games,

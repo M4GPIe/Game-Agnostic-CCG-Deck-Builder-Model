@@ -11,6 +11,7 @@ def calculate_lands(parsed_cards: List[MTGCard], total_cards):
     mana_count = Counter()
     for card in parsed_cards:
         for color, count in card.mana_cost_by_color.items():
+            print(card.mana_cost_by_color)
             mana_count[color] += 1
 
     # Calcular la proporción de tierras de cada color
