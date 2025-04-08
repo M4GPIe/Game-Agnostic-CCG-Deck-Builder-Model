@@ -5,26 +5,25 @@ from collections import Counter
 from typing import List
 
 class Simulator:
-    def __init__(self, forge_installation_path: str, forge_jar_path: str):
+    def __init__(self, forge_installation_path: str, forge_jar_path: str, test_decks_path: str):
         self.forge_installation_path = forge_installation_path
         self.forge_jar_path = forge_jar_path
+        self.test_decks_path = test_deck_path
 
     def generate_deck(self, parsed_cards: List[MTGCard]):
         """
         Genera el archivo .dck con las cartas proporcionadas y lo guarda en la ruta
         'forge_installation_path\\decks\\constructed'
         """
-        # Calcular tierras y cantidad total de tierras
+        
         lands, num_lands = self.calculate_lands(parsed_cards, len(parsed_cards))
 
-        # Establecer la ruta de guardado para el archivo .dck
         deck_file_path = os.path.join(self.forge_installation_path, 'decks', 'constructed', 'generated_deck.dck')
 
-        # Generar y guardar el archivo .dck
         self.write_deck(parsed_cards, lands, deck_file_path)
 
         print(f"El archivo .dck se ha generado correctamente: {deck_file_path}")
-        return deck_file_path
+        return deck_file_path, "generated_deck.dck"
 
     def calculate_lands(self, parsed_cards: List[MTGCard], total_cards: int):
         """
@@ -74,19 +73,77 @@ class Simulator:
                     f.write(f"{land_count} Plains\n")
                 else:
                     f.write(f"{land_count} Wastes\n")
+                    
+                    
+    def run_matches(self, generated_deck_name: str, num_matches: int, games_per_match: int):
+        # Lista los archivos .dck en el directorio test_decks_path
+        test_decks = [f for f in os.listdir(self.test_decks_path) if f.endswith('.dck')]
+        
+        # Verifica si hay suficientes decks para jugar
+        if len(test_decks) == 0:
+            print("No hay archivos .dck en la carpeta especificada.")
+            return
+        
+        match_results = []
+        
+        # Simula num_matches juegos
+        for _ in range(num_matches):
+            # Escoge un deck aleatorio
+            test_deck_name = random.choice(test_decks)
+            print(f"Simulando juego con el deck: {test_deck_name}")
 
-    def run_matches(self, num_matches: int, deck_file_path: str):
-        """
-        Ejecuta el comando para simular partidas usando Forge. Este método toma el número de partidas
-        a simular y el path al archivo .dck generado para usarlo en el simulador de Forge.
-        """
-        # Establecer el comando para ejecutar el simulador de Forge
+            # Llama a la función run_match para simular el juego
+            result = self.run_match(games_per_match, test_deck_name, generated_deck_name)
+            match_results.append(result)
+        
+
+    def run_match(self, games_per_match: int, test_deck_name: str, generated_deck_name: str):
+        
         command = [
             "java", "-Xmx1024m", "-jar", os.path.join(self.forge_jar_path, "forge-gui-desktop-2.0.03-SNAPSHOT-jar-with-dependencies.jar"),
-            "sim", "-d", deck_file_path, "deck2.dck", "-q", "-n", str(num_matches)
+            "sim", "-d", generated_deck_name, test_deck_name, "-q", "-n", str(games_per_match)
         ]
 
-        # Ejecutar el comando y obtener el resultado
         print(f"Ejecutando el simulador de partidas con el comando: {' '.join(command)}")
-        subprocess.run(command, check=True)
-        print(f"Simulación de {num_matches} partidas completada.")
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        print(f"Simulación de {games_per_match} partidas completada.")
+
+        output = result.stdout
+
+        total_games = 0
+        wins_test_deck = 0
+        wins_generated_deck = 0
+        total_turns_test_deck = 0
+        total_turns_generated_deck = 0
+
+        match_result_pattern = r"Game (\d+) ended in (\d+) ms\. Ai\(1\)-(\S+) has (won|lost)"
+        turn_pattern = r"Game outcome: Turn (\d+)"
+
+        for line in output.splitlines():
+            
+            game_turns = 0
+            
+            match_result = re.search(match_result_pattern, line)
+            if match_result:
+                total_games += 1
+                winner = match_result.group(2)
+                if winner == test_deck_name:
+                    wins_test_deck += 1 
+                elif winner == generated_deck_name:
+                    wins_generated_deck += 1 
+                    
+            turn_match = re.search(turn_pattern, line)
+            if turn_match:
+                turn_number = int(turn_match.group(1))
+                game_turns = turn_number
+
+        avg_turns_test_deck = total_turns_test_deck / wins_test_deck if wins_test_deck > 0 else 0
+        avg_turns_generated_deck = total_turns_generated_deck / wins_generated_deck if wins_generated_deck > 0 else 0
+
+        return {
+            "total_games": total_games,
+            "wins_test_deck": wins_test_deck,
+            "wins_generated_deck": wins_generated_deck,
+            "avg_turns_test_deck": avg_turns_test_deck,
+            "avg_turns_generated_deck": avg_turns_generated_deck
+        }
