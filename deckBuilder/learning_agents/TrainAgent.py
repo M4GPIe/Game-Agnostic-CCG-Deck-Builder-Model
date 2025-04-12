@@ -1,6 +1,9 @@
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, DQN, A2C,DDPG
 from stable_baselines3.common.vec_env import DummyVecEnv
 import torch
+
+# cambiar a stable baselines PPo2 TD3 DDPQ y DQN
+# comparar diferentes algoritmos y resultados
 
 class TrainAgent:
     def __init__(self, env):
@@ -12,7 +15,7 @@ class TrainAgent:
         
         device = "cuda" if torch.cuda.is_available() else "cpu"
         
-        model = PPO("MlpPolicy", vec_env, verbose=1, device=device)
+        model = DQN("MlpPolicy", vec_env, verbose=0, device=device)
         
         model.learn(total_timesteps=total_timesteps)
         

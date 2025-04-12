@@ -6,15 +6,12 @@ from typing import List
 import random
 import re
 
-# cambiar a stable baselines PPo2 TD3 DDPQ y DQN
-# comparar diferentes algoritmos y resultados
-# conectar GPU (cuda)
-
 class Simulator:
-    def __init__(self, forge_installation_path: str, forge_jar_path: str, test_decks_path: str):
+    def __init__(self, forge_installation_path: str, forge_jar_path: str, test_decks_path: str, test_decks: List[str]=None):
         self.forge_installation_path = forge_installation_path
         self.forge_jar_path = forge_jar_path
         self.test_decks_path = test_decks_path
+        self.test_decks = test_decks
 
     def generate_deck(self, parsed_cards: List[MTGCard]):
         """
@@ -22,34 +19,31 @@ class Simulator:
         'forge_installation_path\\decks\\constructed'
         """
         
-        lands, num_lands = self.calculate_lands(parsed_cards, len(parsed_cards))
+        lands, num_lands = self.calculate_lands(parsed_cards)
 
-        deck_file_path = os.path.join(self.forge_installation_path, 'decks', 'constructed', 'generated_deck.dck')
+        deck_file_path = os.path.join(self.forge_installation_path, 'decks', 'constructed', 'Generated_deck.dck')
 
         self.write_deck(parsed_cards, lands, deck_file_path)
 
         print(f"El archivo .dck se ha generado correctamente: {deck_file_path}")
-        return deck_file_path, "generated_deck.dck"
+        return deck_file_path, "Generated_deck.dck"
 
-    def calculate_lands(self, parsed_cards: List[MTGCard], total_cards: int):
+    def calculate_lands(self, parsed_cards: List[MTGCard]):
         """
         Calcula el número ideal de tierras basándose en las cartas del mazo y su coste de mana.
         """
-        num_lands = int(total_cards * 0.4)
+        num_lands = int(len(parsed_cards) * 0.4)
 
         mana_count = Counter()
         for card in parsed_cards:
             for color, count in card.mana_cost_by_color.items():
-                mana_count[color] += 1
-
-        print(mana_count)
-        # Calcular la proporción de tierras por color
+                if color != "C":
+                    mana_count[color] += count
+        
         total_mana_cost = sum(mana_count.values())
         lands = {}
         for color, count in mana_count.items():
-            lands[color] = int((count / total_mana_cost) * num_lands)+1
-
-        print(lands)
+            lands[color] = int((count / total_mana_cost) * num_lands)
 
         return lands, num_lands
 
@@ -86,13 +80,17 @@ class Simulator:
                     
                     
     def simulate_matches(self, generated_deck_name: str, num_matches: int, games_per_match: int):
-        
-        text_decks = os.path.join(self.forge_installation_path, 'decks', 'constructed')
 
-        test_decks = [f for f in os.listdir(text_decks) if f.endswith('.dck') and f is not generated_deck_name]
+        deck_list = []
         
-        # Verifica si hay suficientes decks para jugar
-        if len(test_decks) == 0:
+        if not self.test_decks or len(self.test_decks)==0:
+            print("no se han pasado mazos")
+            text_decks_path = os.path.join(self.forge_installation_path, 'decks', 'constructed')
+
+            deck_list = [f for f in os.listdir(text_decks_path) if f.endswith('.dck') and f is not generated_deck_name]
+        else: deck_list=self.test_decks
+        
+        if len(deck_list) == 0:
             print("No hay archivos .dck en la carpeta especificada.")
             return
         
@@ -101,13 +99,12 @@ class Simulator:
         # Simula num_matches juegos
         for _ in range(num_matches):
             # Escoge un deck aleatorio
-            test_deck_name = random.choice(test_decks)
+            test_deck_name = random.choice(deck_list)
             print(f"Simulando juego con el deck: {test_deck_name}")
 
             # Llama a la función run_match para simular el juego
             result = self.run_match(games_per_match, test_deck_name, generated_deck_name)
             match_results.append(result)
-            print(f"Simulacion contra el mazo {test_deck_name} finalizada")
             print(f"Partidas ganadas {result['wins_generated_deck']}/{result['total_games']}")
 
         wins = 0
@@ -116,6 +113,8 @@ class Simulator:
         for result in match_results:
             wins+=result["wins_generated_deck"]
             matches += result["total_games"]
+
+        print(f"Total win rate: {wins/matches}")
 
         return wins/matches
         
@@ -127,7 +126,6 @@ class Simulator:
             "sim", "-d", generated_deck_name, test_deck_name, "-q", "-n", str(games_per_match)
         ]
 
-        print(f"Ejecutando el simulador de partidas con el comando: {' '.join(command)}")
         result = subprocess.run(command, check=True, capture_output=True, text=True, cwd=self.forge_jar_path)
 
         output = result.stdout
@@ -147,12 +145,15 @@ class Simulator:
             
             match_result = re.search(match_result_pattern, line)
             if match_result:
+                #print(match_result)
                 total_games += 1
-                winner = match_result.group(2)
-                if winner == test_deck_name:
-                    wins_test_deck += 1 
-                elif winner == generated_deck_name:
+                winner = match_result.group(3)
+                #print(winner)
+                if winner == generated_deck_name[:-4]:
                     wins_generated_deck += 1 
+                
+                elif winner == test_deck_name:
+                    wins_test_deck += 1 
                     
             turn_match = re.search(turn_pattern, line)
             if turn_match:

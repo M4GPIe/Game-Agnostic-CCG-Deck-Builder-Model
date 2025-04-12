@@ -1,8 +1,11 @@
 from sentence_transformers import SentenceTransformer, util
 import re
+import torch
 
 class NLP:
     def __init__(self, model: str, threshold: float):
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.transformer = SentenceTransformer(model, device=device)
         self.transformer = SentenceTransformer(model)  
         self.threshold = threshold
 

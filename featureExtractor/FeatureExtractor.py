@@ -7,6 +7,8 @@ from typing import List, Dict
 import zipfile
 import json
 import re
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import sys
 
 class FeatureExtractor:
     def __init__(self, supported_cards_file: str, keywords_list: List[str], effect_references: Dict[str, List[str]], nlp_model: SupportedModels = "sentence-transformers/all-MiniLM-L6-v2", nlp_threshold: float = 0.6, verbose: bool = False, chunkSize: int = 500, excluded_card_types: List[str] = ["Land"]):
@@ -19,12 +21,30 @@ class FeatureExtractor:
         self.supported_cards = self.get_supported_cards(supported_cards_file)
         self.effect_references = effect_references
 
+
     # Métodos de la clase, asegúrate de usar `self`
     def initialize_nlp(self, nlp_model: SupportedModels, nlp_threshold: float):
         return NLP(model=nlp_model, threshold=nlp_threshold)
 
     def initialize_keywords_processor(self, keywords_list):
         return KeywordProcessor(keywords_list=keywords_list)
+
+    def process_cards_chunk(self, cards_chunk: List[Dict], thread_num: int) -> List[MTGCard]:
+        print(f"Hilo {thread_num} empezando",flush=True)
+        sys.stdout.flush()
+        parsed_cards = []
+        for card_list in cards_chunk:
+            card = card_list[0]
+            print(f"Hilo {thread_num} procesando {len(parsed_cards)} de {len(cards_chunk)}",flush=True)
+            sys.stdout.flush()  
+            if card.get("type") in self.excluded_card_types:
+                continue
+            parsed_card = self.parse_card_data(card)
+            if parsed_card:
+                parsed_cards.append(parsed_card)
+        print(f"Hilo {thread_num} terminado",flush=True)   
+        sys.stdout.flush()
+        return parsed_cards
 
     def parse_cards(self, input_zip_file: str, output_file: str = '../outputFiles/newParsedCards.json'):
         with zipfile.ZipFile(input_zip_file, 'r') as zip_ref:
@@ -33,40 +53,33 @@ class FeatureExtractor:
                 print("No se encontró ningún archivo JSON en el zip.")
             else:
                 json_file = json_files[0]
-
-                #print("Procesando el archivo:", json_file)
-
                 with zip_ref.open(json_file) as f:
+                    data = json.load(f)
+
+                    cards = list(data['data'].values())[:1500]
+                    card_chunks = [cards[i:i + self.chunkSize] for i in range(0, len(cards), self.chunkSize)]
+
+                    print(len(card_chunks))
+                    print(len(card_chunks[0]))
+
+                    # Procesar los chunks en paralelo utilizando multiprocessing
+                    parsed_cards = set()
+                    with ProcessPoolExecutor() as executor:
+                        futures = {
+                            executor.submit(self.process_cards_chunk, chunk, thread_num): (chunk, thread_num)
+                            for thread_num, chunk in enumerate(card_chunks, start=1)
+                        }
+                        for future in as_completed(futures):
+                            result = future.result()
+                            print(f"Result first {result[0]}")
+                            parsed_cards.update(result)
+
+                    print(len(parsed_cards))
+                    # Aquí, aseguramos que solo un proceso escriba en el archivo final
                     with open(output_file, 'w') as json_out:
-                        data = json.load(f)
+                        json.dump([card.__dict__ for card in parsed_cards], json_out, indent=4)
 
-                        cards = list(data['data'].values())[:1500]
-                        parsed_cards = []
-                        card_counter = 0
-
-                        #start_time = time.time()
-
-                        for card_list in cards:
-                            
-                            if self.chunkSize and len(parsed_cards) == self.chunkSize:
-                                json.dump([card.__dict__ for card in parsed_cards], json_out, indent=4)
-                                parsed_cards = []
-                            
-                            #print_cpu_gpu_usage()
-                            #print_current_time(start_time)
-                            print(f"Processing {card_counter} out of {len(cards)}")
-                            card = card_list[0]
-                            if card.get("type") in self.excluded_card_types:
-                                #print("Excluded card type")
-                                continue
-                            parsed_card = self.parse_card_data(card)  
-                            if parsed_card:  
-                                parsed_cards.append(parsed_card)
-
-                with open(output_file, 'w') as json_out:
-                    json.dump([card.__dict__ for card in parsed_cards], json_out, indent=4)
-
-            print(f"Cartas guardadas en {output_file}")
+        print(f"Cartas guardadas en {output_file}")
 
     def get_supported_cards(self, supported_cards_file: str)-> set[str]:
 
@@ -105,10 +118,9 @@ class FeatureExtractor:
         print("FOUND")
         
         # get keywords
-        self.keyword_processor.extract_keywords(card_keywords=card_keywords, card_text = text)
+        parsed_keywords = self.keyword_processor.extract_keywords(card_keywords=card_keywords, card_text = text)
 
         # get nlp features
-        print(text)
         effects_object  = {}
         for effect in self.effect_references.keys():
             effects_object[effect]= False
@@ -119,12 +131,8 @@ class FeatureExtractor:
                 found = self.nlp.text_query(base_text=text, query_text=ref)
                 
                 if found == True:
-                    print(f"Max similarity for {effect} is {ref}")
-                    
                     effects_object[effect]= True
                     break
-            
-        print(effects_object)
 
         # parse mana colors
         # black, blue, red, green, white and colorless
@@ -141,6 +149,8 @@ class FeatureExtractor:
             elif match[1]:  #if matches a letter
                 mana_cost_by_color[match[1]] += 1 
 
+        print(effects_object)
+
         # create card instance
         mtg_card = MTGCard(
             name=name,
@@ -149,8 +159,10 @@ class FeatureExtractor:
             convertedManaCost=convertedManaCost,
             power=power,
             toughness=toughness,
-            card_keywords=card_keywords,
+            card_keywords=parsed_keywords,
             card_effects = effects_object
         )
+
+        print(mtg_card)
 
         return mtg_card

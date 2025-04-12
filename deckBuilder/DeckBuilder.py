@@ -28,7 +28,7 @@ class DeckBuilderEnv(gym.Env):
         self.current_step = 0  
 
         # Generar cartas disponibles iniciales
-        self.available_cards = self.generate_random_cards(self.parsed_cards_file)
+        self.available_cards = self.generate_random_cards()
         
         # Calcular la dimensión d del vector de cada carta (suponiendo que siempre es consistente)
         # Se toma la primera carta de las disponibles.
@@ -49,11 +49,11 @@ class DeckBuilderEnv(gym.Env):
             obs_shape = (self.k * self.d, )
         self.observation_space = spaces.Box(low=0, high=1, shape=obs_shape, dtype=np.float32)
 
-    def generate_random_cards(self, parsed_cards_file: str):
+    def generate_random_cards(self):
         """
         Selecciona aleatoriamente k cartas a partir del archivo JSON y retorna sus representaciones MTGCard.
         """
-        with open(parsed_cards_file, 'r') as json_in:
+        with open(self.parsed_cards_file, 'r') as json_in:
             parsed_cards = json.load(json_in)
 
         random_cards = random.sample(parsed_cards, self.k)
@@ -88,13 +88,14 @@ class DeckBuilderEnv(gym.Env):
             deck_path, deck_name = self.simulator.generate_deck(self.deck)
             victory_rate = self.simulator.simulate_matches(
                 generated_deck_name=deck_name,
-                num_matches=5,
-                games_per_match=1
+                num_matches=1,
+                games_per_match=3
             )
             reward = self.normalize_reward(victory_rate)
+            print(f"Reward: {reward}")
             terminated = True  
         else:
-            self.available_cards = self.generate_random_cards(self.parsed_cards_file)
+            self.available_cards = self.generate_random_cards()
             reward = 0 
 
         state = self.get_state()
@@ -165,7 +166,7 @@ class DeckBuilderEnv(gym.Env):
 
         self.deck = []
         self.current_step = 0
-        self.available_cards = self.generate_random_cards(self.parsed_cards_file)
+        self.available_cards = self.generate_random_cards()
         return self.get_state(), {}
 
     def render(self):
