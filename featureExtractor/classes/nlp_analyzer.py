@@ -6,11 +6,9 @@ class NLP:
     def __init__(self, model: str, threshold: float):
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.transformer = SentenceTransformer(model, device=device)
-        self.transformer = SentenceTransformer(model)  
         self.threshold = threshold
 
     def text_query(self, base_text: str, query_text: str):
-
         # Divide base_text in chunks by phrase
         chunks = re.split(r'(?<=[.!?])\s+', base_text)
 
@@ -33,4 +31,4 @@ class NLP:
             if similarity > max_similarity:
                 max_similarity = similarity
 
-        return max_similarity>self.threshold
+        return max_similarity > self.threshold
