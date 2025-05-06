@@ -24,7 +24,7 @@ class TrainAgent:
             "MlpPolicy", vec_env,
             learning_rate=3e-4,
             buffer_size=500_000,
-            learning_starts=1000,
+            learning_starts=10000,
             batch_size=128,
             gamma=0.99,
             train_freq=1,
