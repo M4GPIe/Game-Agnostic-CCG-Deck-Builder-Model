@@ -5,13 +5,16 @@ from collections import Counter
 from typing import List
 import random
 import re
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class Simulator:
-    def __init__(self, forge_installation_path: str, forge_jar_path: str, test_decks_path: str, test_decks: List[str]=None):
+    def __init__(self, forge_installation_path: str, forge_jar_path: str, test_decks_path: str, test_decks: List[str]=None, thread_num = 6):
         self.forge_installation_path = forge_installation_path
         self.forge_jar_path = forge_jar_path
         self.test_decks_path = test_decks_path
         self.test_decks = test_decks
+        self.thread_num = thread_num 
 
     def generate_deck(self, parsed_cards: List[MTGCard]):
         """
@@ -96,16 +99,26 @@ class Simulator:
         
         match_results = []
         
-        # Simula num_matches juegos
-        for _ in range(num_matches):
+        lock = threading.Lock()
+
+        def worker(_):
             # Escoge un deck aleatorio
             test_deck_name = random.choice(deck_list)
-            print(f"Simulando juego con el deck: {test_deck_name}")
+            with lock:
+                print(f"Simulando juego con el deck: {test_deck_name}")
 
-            # Llama a la función run_match para simular el juego
+            # Simula la partida
             result = self.run_match(games_per_match, test_deck_name, generated_deck_name)
-            match_results.append(result)
-            print(f"Partidas ganadas {result['wins_generated_deck']}/{result['total_games']}")
+
+            with lock:
+                match_results.append(result)
+                print(f"Partidas ganadas {result['wins_generated_deck']}/{result['total_games']}")
+
+            return result
+
+        # Lanzamos num_matches tareas en paralelo
+        with ThreadPoolExecutor(max_workers=self.thread_num) as executor:
+            futures = [executor.submit(worker, i) for i in range(num_matches)]
 
         wins = 0
         matches = 0

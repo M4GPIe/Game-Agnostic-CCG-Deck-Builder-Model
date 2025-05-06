@@ -88,7 +88,7 @@ class DeckBuilderEnv(gym.Env):
             deck_path, deck_name = self.simulator.generate_deck(self.deck)
             victory_rate = self.simulator.simulate_matches(
                 generated_deck_name=deck_name,
-                num_matches=1,
+                num_matches=6,
                 games_per_match=3
             )
             reward = self.normalize_reward(victory_rate)
