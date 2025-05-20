@@ -48,6 +48,31 @@ class DeckBuilderEnv(gym.Env):
         else:
             obs_shape = (self.k * self.d, )
         self.observation_space = spaces.Box(low=0, high=1, shape=obs_shape, dtype=np.float32)
+        
+        # PCA: Reducir la dimensionalidad de las cartas
+        self.pca = PCA(n_components=pca_components)
+        self.apply_pca_to_cards()
+        
+        
+        
+    def apply_pca_to_cards(self):
+        """
+        Aplica PCA a las representaciones de las cartas.
+        """
+        with open(self.parsed_cards_file, 'r') as json_in:
+            parsed_cards = json.load(json_in)
+
+        # Convertir cartas a vectores
+        card_vectors = np.array([MTGCard(**card).to_vector() for card in parsed_cards])
+        
+        # Aplicar PCA a las representaciones de las cartas
+        self.pca.fit(card_vectors)
+        
+    def transform_card_vector(self, card_vector):
+        """
+        Transforma un vector de carta utilizando PCA.
+        """
+        return self.pca.transform([card_vector])[0]
 
     def generate_random_cards(self):
         """
