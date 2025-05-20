@@ -14,7 +14,7 @@ class TrainAgent:
         os.makedirs(self.log_dir, exist_ok=True)
 
         self.env = Monitor(env, filename=os.path.join(self.log_dir, "monitor.csv"))
-        
+
     def train(self, total_timesteps: int):
         vec_env = DummyVecEnv([lambda: self.env])
 
@@ -24,21 +24,17 @@ class TrainAgent:
             "MlpPolicy", vec_env,
             learning_rate=3e-4,
             buffer_size=500_000,
-            learning_starts=10000,
-            batch_size=128,
+            # learning_starts=10000,
+            batch_size=32,
             gamma=0.99,
             train_freq=1,
             gradient_steps=1,
-            target_update_interval=2000,
+            # target_update_interval=2000,
             exploration_fraction=0.1,
             exploration_initial_eps=1.0,
             exploration_final_eps=0.01,
             policy_kwargs=dict(net_arch=[512, 512], activation_fn=torch.nn.ReLU),
             tensorboard_log="./dqn_vectorial_tb/",
-            prioritized_replay=True,
-            prioritized_replay_alpha=0.6,
-            prioritized_replay_beta0=0.4,
-            prioritized_replay_beta_iters=1_000_000,
             verbose=1,
             device=device
                 )
