@@ -1,8 +1,5 @@
-
-import psutil
-import GPUtil
-import time
-
+import re
+import string
 
 def is_numeric(value: str) -> bool:
     """
@@ -11,22 +8,19 @@ def is_numeric(value: str) -> bool:
     try:
         int(value)  
         return True
-    except ValueError:
+    except (ValueError, TypeError):
         return False  
 
+def parse_HS_card_name(name: str)->str:
+    """
+    Format to HS simulator standard
+    - No white spaces or apostrophes or any punctuation
+    - Camelcase with first Upper
+    """
+    # Elimina todos los signos de puntuación
+    name_clean = re.sub(rf"[{re.escape(string.punctuation)}]", "", name)
 
-def print_cpu_gpu_usage():
-    print('CPU ------------------------------------------------------------------------------')
-    cpu_usage = psutil.cpu_percent(interval=1)
-    print(f"Uso de CPU: {cpu_usage}%")
+    # Convierte a CamelCase
+    formatted_name = ''.join(word.capitalize() for word in name_clean.split())
 
-    print('GPU ------------------------------------------------------------------------------')
-    gpus = GPUtil.getGPUs()
-    for gpu in gpus:
-        print(f"GPU {gpu.id}:")
-        print(f"  Uso: {gpu.load*100:.1f}%")
-        print(f"  Memoria usada: {gpu.memoryUtil*100:.1f}%")
-    print('----------------------------------------------------------------------------------')
-
-def print_current_time(initialTime):
-    print(f"Passed time {time.time() - initialTime}")
+    return formatted_name

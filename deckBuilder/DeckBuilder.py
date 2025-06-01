@@ -3,6 +3,7 @@ from gymnasium import spaces
 import numpy as np
 import random
 import json
+from deckBuilder.utils.mana_curve_similarity import mana_curve_similarity
 from featureExtractor.classes.card import MTGCard
 from simulator.Simulator import Simulator
 
@@ -48,31 +49,6 @@ class DeckBuilderEnv(gym.Env):
         else:
             obs_shape = (self.k * self.d, )
         self.observation_space = spaces.Box(low=0, high=1, shape=obs_shape, dtype=np.float32)
-        
-        # PCA: Reducir la dimensionalidad de las cartas
-        self.pca = PCA(n_components=pca_components)
-        self.apply_pca_to_cards()
-        
-        
-        
-    def apply_pca_to_cards(self):
-        """
-        Aplica PCA a las representaciones de las cartas.
-        """
-        with open(self.parsed_cards_file, 'r') as json_in:
-            parsed_cards = json.load(json_in)
-
-        # Convertir cartas a vectores
-        card_vectors = np.array([MTGCard(**card).to_vector() for card in parsed_cards])
-        
-        # Aplicar PCA a las representaciones de las cartas
-        self.pca.fit(card_vectors)
-        
-    def transform_card_vector(self, card_vector):
-        """
-        Transforma un vector de carta utilizando PCA.
-        """
-        return self.pca.transform([card_vector])[0]
 
     def generate_random_cards(self):
         """
@@ -113,15 +89,15 @@ class DeckBuilderEnv(gym.Env):
             deck_path, deck_name = self.simulator.generate_deck(self.deck)
             victory_rate = self.simulator.simulate_matches(
                 generated_deck_name=deck_name,
-                num_matches=6,
-                games_per_match=3
+                num_matches=4,
+                games_per_match=2
             )
             reward = self.normalize_reward(victory_rate)
             print(f"Reward: {reward}")
             terminated = True  
         else:
             self.available_cards = self.generate_random_cards()
-            reward = 0 
+            reward = mana_curve_similarity(self.deck, self.n)  
 
         state = self.get_state()
         return state, reward, terminated, truncated, {}
