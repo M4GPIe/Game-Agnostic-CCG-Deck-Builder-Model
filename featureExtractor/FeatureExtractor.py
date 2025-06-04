@@ -60,9 +60,9 @@ class FeatureExtractor:
                     cards = []
 
                     if self.ccg == "MTG":
-                        cards = list(data['data'].values())[:100]
+                        cards = list(data['data'].values())[:2000]
                     else:
-                        cards = list(data)[:100]
+                        cards = list(data)[:2000]
 
                     card_chunks = [cards[i:i + self.chunkSize] for i in range(0, len(cards), self.chunkSize)]
 

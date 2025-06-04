@@ -1,7 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 
-from stable_baselines3 import DQN
+from stable_baselines3 import DQN, PPO, A2C
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.results_plotter import load_results
