@@ -22,7 +22,7 @@ def mana_curve_similarity(deck, n, ccg : Literal["MTG","HS"]):
     optimal_curve_counts = optimal_curve_pct * n
 
     # Obtener CMCs del mazo actual
-    cmcs = np.array([min(card.convertedManaCost, 5) for card in deck])  # CMC max 5+
+    cmcs = np.array([min(card.total_cost, 5) for card in deck])  # CMC max 5+
 
     # Contar cartas en los bins definidos
     bins = [0, 1, 2, 3, 4, 100]  # último bin es 5+

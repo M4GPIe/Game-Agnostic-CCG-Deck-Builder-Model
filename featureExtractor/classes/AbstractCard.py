@@ -35,3 +35,32 @@ class AbstractCard(ABC):
           f"Keywords      : {''.join(map(str, self.keywords))}\n"
           f"Effects       : {''.join(map(str, self.effects))}"
       )
+  
+  def to_vector(self) -> List[int]:
+        """
+        Converts the card attributes into a numeric vector.
+
+        Returns:
+            A list of integers representing the card's attributes.
+        """
+        # Start with an empty list for the vector
+        vector = []
+
+        # Add numeric attributes: power, toughness, total cost
+        vector.append(self.power)
+        vector.append(self.toughness)
+        vector.append(self.total_cost)
+
+        # Add cost by color, filling in with 0 if cost_by_color is None
+        if self.cost_by_color:
+            vector.extend(self.cost_by_color)
+        else:
+            vector.extend([0] * 6)  # Assuming 6 mana colors, fill with 0 if not available
+
+        # Add the keywords as a list of integers (bits)
+        vector.extend(self.keywords)
+
+        # Add the effects as a list of integers (bits)
+        vector.extend(self.effects)
+
+        return vector

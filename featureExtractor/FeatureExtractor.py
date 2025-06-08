@@ -3,7 +3,7 @@ import os
 from typing import List, Dict, Literal
 import zipfile
 import json
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 import sys
 from featureExtractor.classes.MTGCard import MTGCard
 from featureExtractor.classes.HSCard import HSCard
@@ -11,6 +11,7 @@ from featureExtractor.classes.AbstractCard import AbstractCard
 from featureExtractor.classes.KeywordProcessor import KeywordProcessor
 from featureExtractor.classes.NLPProcessor import NLPProcessor
 from featureExtractor.classes.SupportedModels import SupportedModels
+from featureExtractor.utils.helper_functions import parse_HS_card_name
 
 class FeatureExtractor:
     def __init__(self, ccg : Literal["MTG","HS"], keywords_list: List[str], effect_references: Dict[str, List[str]], nlp_model: SupportedModels = "sentence-transformers/all-MiniLM-L6-v2", nlp_threshold: float = 0.6, verbose: bool = False, chunkSize: int = 500, excluded_card_types: List[str] = ["Land"], supported_cards_file: str = None):
@@ -33,13 +34,14 @@ class FeatureExtractor:
         print(f"Hilo {thread_num} empezando",flush=True)
         sys.stdout.flush()
         parsed_cards = []
-        for card_list in cards_chunk:
+        for index, card_list in enumerate(cards_chunk):
             card = card_list[0] if isinstance(card_list, List) else card_list
-            print(f"Hilo {thread_num} procesando {len(parsed_cards)} de {len(cards_chunk)}",flush=True)
+            print(f"Hilo {thread_num} procesando {index} de {len(cards_chunk)}",flush=True)
             sys.stdout.flush()
-            if card.get("type") in self.excluded_card_types or (self.supported_cards and card.get("name") not in self.supported_cards):
+            if card.get("type") in self.excluded_card_types or (self.supported_cards and ((self.ccg == "MTG" and card.get("name") not in self.supported_cards) or (self.ccg=="HS" and parse_HS_card_name(card.get("name")) not in self.supported_cards))):
                 continue
             parsed_card = self.parse_card_data(card)
+            print(parsed_card)
             if parsed_card is not None or parsed_card is not {}:
                 parsed_cards.append(parsed_card)
         print(f"Hilo {thread_num} terminado",flush=True)
@@ -62,13 +64,13 @@ class FeatureExtractor:
                     if self.ccg == "MTG":
                         cards = list(data['data'].values())[:2000]
                     else:
-                        cards = list(data)[:2000]
+                        cards = list(data)
 
                     card_chunks = [cards[i:i + self.chunkSize] for i in range(0, len(cards), self.chunkSize)]
 
                     # Multithread processing
                     parsed_cards = list()
-                    with ProcessPoolExecutor() as executor:
+                    with ThreadPoolExecutor() as executor:
                         futures = {
                             executor.submit(self.process_cards_chunk, chunk, thread_num): (chunk, thread_num)
                             for thread_num, chunk in enumerate(card_chunks, start=1)
@@ -96,6 +98,7 @@ class FeatureExtractor:
         with open(supported_cards_file, 'r', encoding='utf-8') as file:
             names_set = {line.strip() for line in file}
 
+        print(names_set)
         return names_set
 
     def parse_card_data(self, card: Dict) -> AbstractCard:

@@ -5,6 +5,7 @@ from featureExtractor.classes.KeywordProcessor import KeywordProcessor
 from featureExtractor.classes.NLPProcessor import NLPProcessor
 from featureExtractor.utils.helper_functions import is_numeric
 from featureExtractor.utils.constants.MTG_Constants import MTG_effect_references
+from typing import List, Literal
 
 class MTGCard(AbstractCard):
   def __init__(self, card: Dict, keyword_processor: KeywordProcessor, nlp: NLPProcessor):
@@ -63,3 +64,10 @@ class MTGCard(AbstractCard):
               mana_cost_by_color[match[1]] += 1
 
       super().__init__(name, card_type, power, toughness, keywords=binary_keywords, effects=binary_effects, total_cost=convertedManaCost, cost_by_color=mana_cost_by_color)
+
+  def __init__(self, name: str, card_type: str, power: int, toughness: int, keywords: List[Literal[0,1]], effects: List[Literal[0,1]], total_cost: int, cost_by_color: List[int] = None):
+        """
+        Initializes the card directly with parsed parameters, including pre-parsed binary keywords and effects
+        """
+        # No need to parse keywords and effects as they are already passed as binary lists
+        super().__init__(name, card_type, power, toughness, keywords=keywords, effects=effects, total_cost=total_cost, cost_by_color=cost_by_color)

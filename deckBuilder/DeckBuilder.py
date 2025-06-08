@@ -3,12 +3,14 @@ from gymnasium import spaces
 import numpy as np
 import random
 import json
+from typing import Literal
 from deckBuilder.utils.mana_curve_similarity import mana_curve_similarity
-from featureExtractor.classes.card import MTGCard
-from simulator.Simulator import Simulator
+from simulator.AbstractSimulator import AbstractSimulator
+from featureExtractor.classes.HSCard import HSCard
+from featureExtractor.classes.MTGCard import MTGCard
 
 class DeckBuilderEnv(gym.Env):
-    def __init__(self, n: int, k: int, history: bool, parsed_cards_file: str, simulator: Simulator):
+    def __init__(self, ccg: Literal["MTG","HS"], n: int, k: int, history: bool, parsed_cards_file: str, simulator: AbstractSimulator):
         """
         Parámetros:
             - n: Tamaño máximo del deck (número de cartas que se seleccionarán).
@@ -19,18 +21,18 @@ class DeckBuilderEnv(gym.Env):
         """
         super().__init__()
 
-        self.n = n  # deck size (cantidad máxima de cartas seleccionadas)
-        self.k = k  # cantidad de cartas disponibles en cada paso
+        self.n = n  # deck size
+        self.k = k  # number of options per selection
         self.history = history  # indica si se debe incluir la historia del deck en el estado
         self.parsed_cards_file = parsed_cards_file
         self.simulator = simulator
+        self.ccg = ccg
 
-        self.deck = [] 
-        self.current_step = 0  
-
-        # Generar cartas disponibles iniciales
+        # step 0 initialization
+        self.deck = []
+        self.current_step = 0
         self.available_cards = self.generate_random_cards()
-        
+
         # Calcular la dimensión d del vector de cada carta (suponiendo que siempre es consistente)
         # Se toma la primera carta de las disponibles.
         if len(self.available_cards) > 0:
@@ -58,20 +60,35 @@ class DeckBuilderEnv(gym.Env):
             parsed_cards = json.load(json_in)
 
         random_cards = random.sample(parsed_cards, self.k)
-        mtg_cards = []
-        for card in random_cards:
-            card_obj = MTGCard(
-                name=card.get("name", ""),
-                card_type=card.get("card_type", ""),
-                mana_cost_by_color=card.get("mana_cost_by_color", {}),
-                convertedManaCost=card.get("convertedManaCost", 0),
-                power=card.get("power", 0),
-                toughness=card.get("toughness", 0),
-                card_effects=card.get("card_effects", {}),
-                card_keywords=card.get("card_keywords", {})
-            )
-            mtg_cards.append(card_obj)
-        return mtg_cards
+        cards = []
+
+        if self.ccg == "MTG":
+            for card in random_cards:
+                card_obj = MTGCard(
+                    name=card.get("name"), 
+                    card_type=card.get("card_type"), 
+                    power=card.get("power"), 
+                    toughness=card.get("toughness"), 
+                    keywords=card.get("keywords"), 
+                    effects=card.get("effects"), 
+                    total_cost=card.get("total_cost"), 
+                    cost_by_color=card.get("cost_by_color")
+                )
+                cards.append(card_obj)
+        else:
+            for card in random_cards:
+                card_obj = HSCard(
+                    name=card.get("name"), 
+                    card_type=card.get("card_type"), 
+                    power=card.get("power"), 
+                    toughness=card.get("toughness"), 
+                    keywords=card.get("keywords"), 
+                    effects=card.get("effects"), 
+                    total_cost=card.get("total_cost"), 
+                    cost_by_color=card.get("cost_by_color")
+                )
+                cards.append(card_obj)
+        return cards
 
     def step(self, action):
         """
@@ -86,18 +103,19 @@ class DeckBuilderEnv(gym.Env):
         truncated = False
 
         if self.current_step >= self.n:
-            deck_path, deck_name = self.simulator.generate_deck(self.deck)
-            victory_rate = self.simulator.simulate_matches(
-                generated_deck_name=deck_name,
-                num_matches=4,
-                games_per_match=2
+            deck_path = self.simulator.generate_deck(self.deck)
+            result = self.simulator.simulate_matches(
+                num_matches=1, games_per_match = 3
             )
+            
+            victory_rate = result["winRate"]
+
             reward = self.normalize_reward(victory_rate)
             print(f"Reward: {reward}")
-            terminated = True  
+            terminated = True
         else:
             self.available_cards = self.generate_random_cards()
-            reward = mana_curve_similarity(self.deck, self.n)  
+            reward = mana_curve_similarity(self.deck, self.n, ccg=self.ccg)
 
         state = self.get_state()
         return state, reward, terminated, truncated, {}
@@ -105,10 +123,10 @@ class DeckBuilderEnv(gym.Env):
     def get_state(self):
         """
         Construye el estado actual como vector fijo:
-        
-        - Si history es False: 
+
+        - Si history es False:
             Se obtiene el vector aplanado de las k cartas disponibles.
-        
+
         - Si history es True:
             Se concatena el vector de las cartas seleccionadas (deck) con el vector de las cartas disponibles.
             El deck se rellena (padding con ceros) hasta tener n cartas para garantizar una forma fija.
