@@ -41,7 +41,6 @@ class FeatureExtractor:
             if card.get("type") in self.excluded_card_types or (self.supported_cards and ((self.ccg == "MTG" and card.get("name") not in self.supported_cards) or (self.ccg=="HS" and parse_HS_card_name(card.get("name")) not in self.supported_cards))):
                 continue
             parsed_card = self.parse_card_data(card)
-            print(parsed_card)
             if parsed_card is not None or parsed_card is not {}:
                 parsed_cards.append(parsed_card)
         print(f"Hilo {thread_num} terminado",flush=True)
@@ -79,6 +78,17 @@ class FeatureExtractor:
                             result = future.result()
                             parsed_cards.extend(result)
 
+                    # remove duplicates
+                    seen_names = set()
+                    unique_cards = list()
+
+                    for card in parsed_cards:
+                        if card.name not in seen_names:
+                            seen_names.add(card.name)
+                            unique_cards.append(card)
+
+                    parsed_cards = unique_cards
+
                     print(len(parsed_cards))
 
                      # Create file if it doesnt exist
@@ -97,8 +107,6 @@ class FeatureExtractor:
 
         with open(supported_cards_file, 'r', encoding='utf-8') as file:
             names_set = {line.strip() for line in file}
-
-        print(names_set)
         return names_set
 
     def parse_card_data(self, card: Dict) -> AbstractCard:

@@ -19,33 +19,70 @@ class TrainAgent:
         vec_env = DummyVecEnv([lambda: self.env])
         device = "cuda" if torch.cuda.is_available() else "cpu"
 
-        model = DQN(
-            "MlpPolicy", vec_env,
-            learning_rate=1e-4,
-            buffer_size=100_000,
-            batch_size=64,
-            gamma=0.99,
-            train_freq=(4, "step"),        # entrenar cada 4 pasos
-            gradient_steps=1,
-            learning_starts=10_000,
-            target_update_interval=8000,
-            exploration_fraction=0.1,
-            exploration_initial_eps=1.0,
-            exploration_final_eps=0.01,
-            policy_kwargs=dict(
-                net_arch=[512, 512],
-                activation_fn=torch.nn.ReLU,
-                # Dueling DQN se activa por defecto en SB3
-                # No es necesario pasar `dueling=True` explícitamente aquí
-            ),
-            tensorboard_log="./rainbow_dqn_tb/",
-            verbose=1,
-            device=device,
-            # prioritized_replay=True,
-            # n_steps=3,
-            # noisy_std=0.5,
-            # double_q=True,  # activar Double DQN
-        )
+        model = A2C(
+             "MlpPolicy",
+             vec_env,
+             learning_rate=7e-4,
+             n_steps=20,
+             gamma=0.99,
+             gae_lambda=0.95,
+             ent_coef=0.01,
+             vf_coef=0.25,
+             max_grad_norm=0.5,
+             use_rms_prop=True,
+             rms_prop_eps=1e-5,
+             normalize_advantage=True,
+             policy_kwargs=dict(
+                 net_arch=dict(pi=[128, 128], vf=[128, 128]),
+                 activation_fn=torch.nn.ReLU
+             ),
+             tensorboard_log="./a2c_tb/",
+             verbose=1,
+             device="cpu"
+         )
+
+        # model = DQN(
+        #      "MlpPolicy", vec_env,
+        #      learning_rate=1e-4,
+        #      buffer_size=100_000,
+        #      batch_size=32,
+        #      gamma=0.99,
+        #      train_freq=(4, "step"),        # entrenar cada 4 pasos
+        #      gradient_steps=1,
+        #      target_update_interval=512,
+        #      exploration_fraction=0.1,
+        #      exploration_initial_eps=1.0,
+        #      exploration_final_eps=0.01,
+        #      policy_kwargs=dict(
+        #          net_arch=[512, 512],
+        #          activation_fn=torch.nn.ReLU,
+        #      ),
+        #      tensorboard_log="./dqn_vectorial_tb/",
+        #      verbose=1,
+        #      device=device,
+        #  )
+
+        # model = PPO(
+        #     "MlpPolicy",
+        #     vec_env,
+        #     learning_rate=3e-4,
+        #     n_steps=512,             # ahora cada rollout son 512 pasos → ~78 rollouts
+        #     batch_size=32,           # minibatches pequeños para mayor número de updates
+        #     n_epochs=10,             # pasadas por rollout
+        #     gamma=0.99,
+        #     gae_lambda=0.95,
+        #     ent_coef=0.01,
+        #     vf_coef=0.5,
+        #     max_grad_norm=0.5,
+        #     clip_range=0.2,
+        #     policy_kwargs=dict(
+        #         net_arch=[256, 256],
+        #         activation_fn=torch.nn.ReLU
+        #     ),
+        #     tensorboard_log="./ppo_tb/",
+        #     verbose=1,
+        #     device="cpu",
+        # )
 
         model.learn(total_timesteps=total_timesteps)
 

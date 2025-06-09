@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 import subprocess
+import time
 from simulator.AbstractSimulator import AbstractSimulator, MatchResults
 from featureExtractor.classes.HSCard import HSCard
 from typing import List, Set
@@ -50,7 +51,7 @@ class HearthstoneSimulator(AbstractSimulator):
             }
 
     for i in range(num_matches):
-      test_deck_name = random.choice(deck_list)
+      test_deck_name = random.choice(deck_list) if num_matches < len(deck_list) else deck_list[i%len(deck_list)]
 
       test_deck_path = os.path.join(self.test_decks_directory, test_deck_name)
       generated_deck_path = os.path.join(self.test_decks_directory, self.generated_deck_name)
@@ -104,13 +105,10 @@ class HearthstoneSimulator(AbstractSimulator):
 
     output_file_path = os.path.join(self.game_config_path, output_file_name)
 
-    print(output_file_path)
-
     if os.path.exists(output_file_path):
         with open(output_file_path, "r", encoding="utf-8") as f:
             contenido = f.read()
 
-        matches_data = []
         total_wins = 0
         total_turns = 0
         total_matches = 0
@@ -130,6 +128,15 @@ class HearthstoneSimulator(AbstractSimulator):
             except json.JSONDecodeError:
                 print("Error parsing match result line:", line)
                 continue
+            
+        if total_matches == 0:
+            print('----------------------------- RESULT -------------------------------------------')
+            print(contenido)
+            deck_file_path = os.path.join(self.test_decks_directory, self.generated_deck_name)
+            with open(deck_file_path, "r", encoding="utf-8") as f:
+                deck = f.read()
+            print('----------------------------- DECK -------------------------------------------')
+            print(deck)
 
         # If player 1 never won, set the average duration to -1
         if total_wins > 0:
@@ -137,11 +144,8 @@ class HearthstoneSimulator(AbstractSimulator):
         else:
             avg_turns = -1
 
-        print(total_wins, total_matches)
-
         # Return the win rate and average turns for player 1
         win_rate = total_wins / total_matches if total_matches > 0 else 0
-        print(win_rate)
         return {
             "winRate": win_rate,
             "avg_turns": avg_turns
