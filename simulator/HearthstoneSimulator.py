@@ -51,10 +51,7 @@ class HearthstoneSimulator(AbstractSimulator):
             }
 
     for i in range(num_matches):
-      test_deck_name = random.choice(deck_list) if num_matches < len(deck_list) else deck_list[i%len(deck_list)]
-
-      test_deck_path = os.path.join(self.test_decks_directory, test_deck_name)
-      generated_deck_path = os.path.join(self.test_decks_directory, self.generated_deck_name)
+      test_deck_name = random.choice(deck_list) if num_matches != len(deck_list) else deck_list[i]
 
       res = self.simulate_match(games_per_match, test_deck_name, self.generated_deck_name)
 
@@ -96,18 +93,21 @@ class HearthstoneSimulator(AbstractSimulator):
 
     self.write_game_config(games_per_match, deck_a_name, deck_b_name, output_file_name)
 
-    result = subprocess.run(['gradlew','runSim'], cwd=r"C:\Users\Admin\OneDrive\Escritorio\TFG\HearthSim",shell=True)
-
-    if result.returncode != 0:
-        print("Error executing match")
-        print(result.stderr)
-        return None
+    subprocess.run(['gradlew','runSim'], cwd=r"C:\Users\Admin\OneDrive\Escritorio\TFG\HearthSim",shell=True)
 
     output_file_path = os.path.join(self.game_config_path, output_file_name)
 
     if os.path.exists(output_file_path):
         with open(output_file_path, "r", encoding="utf-8") as f:
             contenido = f.read()
+
+        retry_num = 0
+        while((not contenido or len(contenido.splitlines())<games_per_match) and retry_num<10):
+            print(f"retry {retry_num+1}")
+            subprocess.run(['gradlew','runSim'], cwd=r"C:\Users\Admin\OneDrive\Escritorio\TFG\HearthSim",shell=True)
+            retry_num += 1
+            with open(output_file_path, "r", encoding="utf-8") as f:
+                contenido = f.read()
 
         total_wins = 0
         total_turns = 0

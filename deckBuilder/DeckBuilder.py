@@ -103,9 +103,9 @@ class DeckBuilderEnv(gym.Env):
         truncated = False
 
         if self.current_step >= self.n:
-            deck_path = self.simulator.generate_deck(self.deck)
+            self.simulator.generate_deck(self.deck)
             result = self.simulator.simulate_matches(
-                num_matches=3, games_per_match = 5
+                num_matches=1, games_per_match = 5
             )
             
             victory_rate = result["winRate"]
