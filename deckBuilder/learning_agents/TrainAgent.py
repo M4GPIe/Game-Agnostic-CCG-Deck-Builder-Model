@@ -65,27 +65,51 @@ class TrainAgent:
                 device=device,
             )
         else:
+            # model = PPO(
+            #     "MlpPolicy",
+            #     vec_env,
+            #     learning_rate=3e-4,
+            #     n_steps=512,             #ahora cada rollout son 512 pasos → ~78 rollouts
+            #     batch_size=32,           #minibatches pequeños para mayor número de updates
+            #     n_epochs=10,             #pasadas por rollout
+            #     gamma=0.99,
+            #     gae_lambda=0.95,
+            #     ent_coef=0.01,
+            #     vf_coef=0.5,
+            #     max_grad_norm=0.5,
+            #     clip_range=0.2,
+            #     policy_kwargs=dict(
+            #         net_arch=[256, 256],
+            #         activation_fn=torch.nn.ReLU
+            #     ),
+            #     tensorboard_log="./ppo_tb/",
+            #     verbose=1,
+            #     device="cpu",
+            # )
+
+            # segun GPT estos hiperparametros iran mejor
             model = PPO(
-                "MlpPolicy",
-                vec_env,
-                learning_rate=3e-4,
-                n_steps=512,             #ahora cada rollout son 512 pasos → ~78 rollouts
-                batch_size=32,           #minibatches pequeños para mayor número de updates
-                n_epochs=10,             #pasadas por rollout
-                gamma=0.99,
-                gae_lambda=0.95,
-                ent_coef=0.01,
-                vf_coef=0.5,
-                max_grad_norm=0.5,
-                clip_range=0.2,
-                policy_kwargs=dict(
-                    net_arch=[256, 256],
-                    activation_fn=torch.nn.ReLU
-                ),
-                tensorboard_log="./ppo_tb/",
-                verbose=1,
-                device="cpu",
+                 "MlpPolicy",
+                 vec_env,
+                 learning_rate=5e-4,          #Aumento de la tasa de aprendizaje
+                 n_steps=1024,                #Aumento de n_steps para mayor exploración
+                 batch_size=64,               #Aumento del tamaño del lote para mayor variabilidad
+                 n_epochs=20,                 #Aumento de las épocas por rollout
+                 gamma=0.99,
+                 gae_lambda=0.95,
+                 ent_coef=0.001,              #Reducción del coeficiente de entropía para mayor exploración
+                 vf_coef=0.7,                 #Aumento del coeficiente de la función de valor
+                 max_grad_norm=0.5,           #Mantener el valor de max_grad_norm para estabilidad
+                 clip_range=0.3,              #Aumento del rango de recorte para permitir más flexibilidad
+                 policy_kwargs=dict(
+                     net_arch=[256, 256],
+                     activation_fn=torch.nn.ReLU
+                 ),
+                 tensorboard_log="./ppo_tb/",
+                 verbose=1,
+                 device="cpu",                #Mantener en CPU o cambiar a 'cuda' si tienes acceso a GPU
             )
+
 
         model.learn(total_timesteps=total_timesteps)
 
