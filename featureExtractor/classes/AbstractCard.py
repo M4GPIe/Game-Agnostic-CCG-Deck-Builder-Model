@@ -53,7 +53,7 @@ class AbstractCard(ABC):
 
         # Add cost by color, filling in with 0 if cost_by_color is None
         if self.cost_by_color:
-            vector.extend(self.cost_by_color)
+            vector.extend(list(self.cost_by_color.values()))
         else:
             vector.extend([0] * 6)  # Assuming 6 mana colors, fill with 0 if not available
 

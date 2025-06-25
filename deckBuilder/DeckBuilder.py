@@ -3,14 +3,15 @@ from gymnasium import spaces
 import numpy as np
 import random
 import json
-from typing import Literal
+from typing import List, Literal
 from deckBuilder.utils.mana_curve_similarity import mana_curve_similarity
+from featureExtractor.classes.AbstractCard import AbstractCard
 from simulator.AbstractSimulator import AbstractSimulator
 from featureExtractor.classes.HSCard import HSCard
 from featureExtractor.classes.MTGCard import MTGCard
 
 class DeckBuilderEnv(gym.Env):
-    def __init__(self, ccg: Literal["MTG","HS"], n: int, k: int, history: bool, parsed_cards_file: str, simulator: AbstractSimulator):
+    def __init__(self, ccg: Literal["MTG","HS"], n: int, k: int, history: bool, parsed_cards_file: str, simulator: AbstractSimulator, selections: List[List[AbstractCard]] = None):
         """
         Parámetros:
             - n: Tamaño máximo del deck (número de cartas que se seleccionarán).
@@ -27,6 +28,7 @@ class DeckBuilderEnv(gym.Env):
         self.parsed_cards_file = parsed_cards_file
         self.simulator = simulator
         self.ccg = ccg
+        self.selections = selections
 
         # step 0 initialization
         self.deck = []
@@ -56,38 +58,67 @@ class DeckBuilderEnv(gym.Env):
         """
         Selecciona aleatoriamente k cartas a partir del archivo JSON y retorna sus representaciones MTGCard.
         """
-        with open(self.parsed_cards_file, 'r') as json_in:
-            parsed_cards = json.load(json_in)
-
-        random_cards = random.sample(parsed_cards, self.k)
         cards = []
+        if not self.selections:
+            with open(self.parsed_cards_file, 'r') as json_in:
+                parsed_cards = json.load(json_in)
 
-        if self.ccg == "MTG":
-            for card in random_cards:
-                card_obj = MTGCard(
-                    name=card.get("name"), 
-                    card_type=card.get("card_type"), 
-                    power=card.get("power"), 
-                    toughness=card.get("toughness"), 
-                    keywords=card.get("keywords"), 
-                    effects=card.get("effects"), 
-                    total_cost=card.get("total_cost"), 
-                    cost_by_color=card.get("cost_by_color")
-                )
-                cards.append(card_obj)
+            random_cards = random.sample(parsed_cards, self.k)
+
+            if self.ccg == "MTG":
+                for card in random_cards:
+                    card_obj = MTGCard(
+                        name=card.get("name"), 
+                        card_type=card.get("card_type"), 
+                        power=card.get("power"), 
+                        toughness=card.get("toughness"), 
+                        keywords=card.get("keywords"), 
+                        effects=card.get("effects"), 
+                        total_cost=card.get("total_cost"), 
+                        cost_by_color=card.get("cost_by_color")
+                    )
+                    cards.append(card_obj)
+            else:
+                for card in random_cards:
+                    card_obj = HSCard(
+                        name=card.get("name"), 
+                        card_type=card.get("card_type"), 
+                        power=card.get("power"), 
+                        toughness=card.get("toughness"), 
+                        keywords=card.get("keywords"), 
+                        effects=card.get("effects"), 
+                        total_cost=card.get("total_cost"), 
+                        cost_by_color=card.get("cost_by_color")
+                    )
+                    cards.append(card_obj)
         else:
-            for card in random_cards:
-                card_obj = HSCard(
-                    name=card.get("name"), 
-                    card_type=card.get("card_type"), 
-                    power=card.get("power"), 
-                    toughness=card.get("toughness"), 
-                    keywords=card.get("keywords"), 
-                    effects=card.get("effects"), 
-                    total_cost=card.get("total_cost"), 
-                    cost_by_color=card.get("cost_by_color")
-                )
-                cards.append(card_obj)
+            random_cards = self.selections[self.current_step]
+            if self.ccg == "MTG":
+                for card in random_cards:
+                    card_obj = MTGCard(
+                        name=card.get("name"), 
+                        card_type=card.get("card_type"), 
+                        power=card.get("power"), 
+                        toughness=card.get("toughness"), 
+                        keywords=card.get("keywords"), 
+                        effects=card.get("effects"), 
+                        total_cost=card.get("total_cost"), 
+                        cost_by_color=card.get("cost_by_color")
+                    )
+                    cards.append(card_obj)
+            else:
+                for card in random_cards:
+                    card_obj = HSCard(
+                        name=card.get("name"), 
+                        card_type=card.get("card_type"), 
+                        power=card.get("power"), 
+                        toughness=card.get("toughness"), 
+                        keywords=card.get("keywords"), 
+                        effects=card.get("effects"), 
+                        total_cost=card.get("total_cost"), 
+                        cost_by_color=card.get("cost_by_color")
+                    )
+                    cards.append(card_obj)
         return cards
 
     def step(self, action):

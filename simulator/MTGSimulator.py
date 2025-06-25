@@ -33,11 +33,11 @@ class MTGSimulator(AbstractSimulator):
       """
         Calculate ideal number of lands according to the number of cards for each color
       """
-      num_lands = int(len(parsed_cards) * 0.4)
+      num_lands = int(len(parsed_cards) * 0.5)
 
       mana_count = Counter()
       for card in parsed_cards:
-          for color, count in card.mana_cost_by_color.items():
+          for color, count in card.cost_by_color.items():
               if color != "C":
                   mana_count[color] += count
 
@@ -56,7 +56,7 @@ class MTGSimulator(AbstractSimulator):
       with open(output_file, 'w') as f:
           f.write("[metadata]\n")
           f.write("Name=Generated_deck\n")
-          f.write("[main]\n")
+          f.write("[Main]\n")
 
           card_counts = Counter([card.name for card in parsed_cards])
 
@@ -102,10 +102,10 @@ class MTGSimulator(AbstractSimulator):
           with lock:
               print(f"Simulating deck with: {test_deck_name}")
 
-          test_deck_path = os.path.join(self.test_decks_directory, test_deck_name)
-          generated_deck_path = os.path.join(self.test_decks_directory, self.generated_deck_name)
+        #   test_deck_path = os.path.join(self.test_decks_directory, test_deck_name)
+        #   generated_deck_path = os.path.join(self.test_decks_directory, self.generated_deck_name)
 
-          result = self.run_match(games_per_match, test_deck_path, generated_deck_path)
+          result = self.simulate_match(games_per_match, test_deck_name,  self.generated_deck_name)
 
           with lock:
               match_results.append(result)
@@ -130,12 +130,13 @@ class MTGSimulator(AbstractSimulator):
       return {"winRate": wins/matches,"avg_turns": turns/matches}
 
 
-  def run_match(self, games_per_match: int, test_deck_name: str, generated_deck_name: str):
-
+  def simulate_match(self, games_per_match: int, test_deck_name: str, generated_deck_name: str):
+      
       command = [
           "java", "-Xmx1024m", "-jar", os.path.join(self.forge_jar_path, "forge-gui-desktop-2.0.03-SNAPSHOT-jar-with-dependencies.jar"),
-          "sim", "-d", generated_deck_name, test_deck_name, "-q", "-n", str(games_per_match)
+          "sim", "-D", self.test_decks_directory , "-d",generated_deck_name, test_deck_name, "-q", "-n", str(games_per_match)
       ]
+
 
       result = subprocess.run(command, check=True, capture_output=True, text=True, cwd=self.forge_jar_path)
 
